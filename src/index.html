@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Diffen - Compare Text locally in your Browser</title>
+</head>
+
+<body>
+    <div id="page_title">
+        <h1>Simple Diffen v1.0.0.0</h1>
+        <p>Diff text locally in your browser.</p>
+    </div>
+    <div id="input_area">
+        <div id="original_area" class="TextAreaAndTitle">
+            <p>Original Text</p>
+            <textarea id="original_textarea" placeholder="Input original text..."></textarea>
+        </div>
+        <div id="modified_area" class="TextAreaAndTitle">
+            <p>Modified Text</p>
+            <textarea id="modified_textarea" placeholder="Input modified text..."></textarea>
+        </div>
+    </div>
+    <div id="option_area">
+        <button id="compare_button">Compare</button>
+    </div>
+    <div id="result_area">
+        <div id="original_result"></div>
+        <div id="modified_result"></div>
+    </div>
+    <div id="desc_area">
+        <p>
+            Simple Diffen is a diff tool that uses JavaScript to show diff information.
+        </p>
+        <p>
+            It runs completely on local browser environment,
+            and could be downloaded as a single HTML file even the online version does not work.
+        </p>
+        <p>
+            If you downloaded the file, do not forget to check if there is an update sometimes !
+        </p>
+    </div>
+
+    <script type="module" src="./index.ts"></script>
+</body>
+
+</html>

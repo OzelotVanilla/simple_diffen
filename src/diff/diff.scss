@@ -1,0 +1,57 @@
+$diff_add_bg: #aacf53;
+$diff_remove_bg: #f2a0a1;
+$diff_modify_bg: #bce2e8;
+$diff_placeholder_bg: #e7e7eb;
+
+.DiffRow
+{
+    width: 100%;
+
+    &.add
+    {
+        background-color: $diff_add_bg;
+    }
+
+    &.remove
+    {
+        background-color: $diff_remove_bg;
+    }
+
+    &.placeholder
+    {
+        background-color: $diff_placeholder_bg;
+    }
+
+    // This is for segment inside a diff row.
+    span
+    {
+        &.add
+        {
+            background-color: $diff_add_bg;
+
+            &::after
+            {
+                content: "";
+                height: 100%;
+                border-left: 4px solid $diff_add_bg;
+            }
+        }
+
+        &.remove
+        {
+            background-color: $diff_remove_bg;
+
+            &::after
+            {
+                content: "";
+                height: 100%;
+                border-left: 4px solid $diff_remove_bg;
+            }
+        }
+
+        &.modify
+        {
+            background-color: $diff_modify_bg;
+        }
+    }
+}

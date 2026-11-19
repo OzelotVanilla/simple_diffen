@@ -1,0 +1,15 @@
+{
+    "name": "single_diff",
+    "description": "A diff viewer in one HTML file",
+    "type": "module",
+    "devDependencies": {
+        "sass-embedded": "^1.108.2",
+        "typescript": "^7.0.2",
+        "vite": "^8.3.8",
+        "vite-plugin-singlefile": "^2.3.4"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    }
+}

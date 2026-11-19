@@ -1,0 +1,98 @@
+@import url("./global.scss");
+@import url("./diff/diff.scss");
+
+body
+{
+    margin: 0px;
+    width: 100%;
+    height: 100vh;
+
+    box-sizing: border-box;
+    padding: max(4px, 1vh) max(10px, 2vw);
+
+    display: flex;
+    flex-direction: column;
+    gap: max(4px, 1vh);
+}
+
+#page_title
+{
+    display: flex;
+    flex-direction: row;
+    gap: min(20px, 2vw);
+
+    h1
+    {
+        font-size: min(4vw, 32px);
+        font-weight: 600;
+        margin: inherit;
+    }
+}
+
+#input_area, #result_area
+{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    width: 100%;
+    gap: max(10px, 2vw);
+}
+
+#input_area
+{
+    .TextAreaAndTitle
+    {
+        display: flex;
+        flex-direction: column;
+        align-items: baseline;
+        flex-grow: 1;
+
+        textarea
+        {
+            width: 100%;
+            min-height: min(40vh, 400px);
+            resize: none;
+        }
+    }
+}
+
+#option_area
+{
+    display: flex;
+    flex-direction: row;
+    gap: max(10px, 2vw);
+
+    #compare_button
+    {
+        min-width: min(5vw, 80px);
+        min-height: min(4vh, 40px);
+    }
+}
+
+#result_area
+{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--ts_var__line_count), auto);
+    align-content: start;
+    gap: min(10px, 1vh);
+
+    #original_result, #modified_result
+    {
+        display: grid;
+        grid-row: 1 / -1;
+        grid-template-rows: subgrid;
+        min-width: 0px;
+    }
+
+    #original_result
+    {
+        grid-column: 1;
+    }
+
+    #modified_result
+    {
+        grid-column: 2;
+    }
+}
