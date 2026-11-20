@@ -257,70 +257,160 @@ function getInlineDiff(original: string, modified: string): DiffLineSegment[]
     return result
 }
 
+
 /**
+ * Align removed and added lines within each changed block.
+ * Uses dynamic programming to find the best ordered matching.
+ *
  * @author ChatGPT
  */
 function alignChangedLines(lines: DiffLine[], diff_option?: DiffOption): DiffLine[]
 {
     const result: DiffLine[] = []
     const segmenter = new Intl.Segmenter(diff_option?.locales, { granularity: "grapheme" })
+    const SIMILARITY_THRESHOLD = 0.5
+    const MAX_PAIR_COMPARISONS = 4096
+
     let i = 0
 
     while (i < lines.length)
     {
-        if (lines[i].segments[0].type === DiffType.equal)
+        if (lines[i].segments[0]?.type === DiffType.equal)
         {
             result.push(lines[i])
             i++
             continue
         }
 
+        // Collect a changed block between two equal lines.
         const block: DiffLine[] = []
 
-        while (i < lines.length && lines[i].segments[0].type !== DiffType.equal)
+        while (i < lines.length && lines[i].segments[0]?.type !== DiffType.equal)
         {
             block.push(lines[i])
             i++
         }
 
-        const removed = block.filter(line => line.segments[0].type === DiffType.remove)
-        const added = block.filter(line => line.segments[0].type === DiffType.add)
+        const removed: { line: DiffLine, text: string }[] = []
+        const added: { line: DiffLine, text: string }[] = []
 
-        if (removed.length === 1 && added.length === 1)
+        for (const line of block)
         {
-            const old_segment = removed[0].segments[0]
-            const new_segment = added[0].segments[0]
+            const segment = line.segments[0]
 
-            if (old_segment.type === DiffType.remove && new_segment.type === DiffType.add)
+            if (segment?.type === DiffType.remove)
             {
-                const segments = getInlineDiff(old_segment.text, new_segment.text)
+                removed.push({ line, text: segment.text })
+            }
+            else if (segment?.type === DiffType.add)
+            {
+                added.push({ line, text: segment.text })
+            }
+        }
+
+        // No possible replacements.
+        if (removed.length === 0 || added.length === 0)
+        {
+            result.push(...block)
+            continue
+        }
+
+        // Avoid excessive pairwise comparisons.
+        if (removed.length * added.length > MAX_PAIR_COMPARISONS)
+        {
+            result.push(...block)
+            continue
+        }
+
+        const n = removed.length
+        const m = added.length
+
+        const original_lengths = removed.map(item => Array.from(segmenter.segment(item.text)).length)
+        const modified_lengths = added.map(item => Array.from(segmenter.segment(item.text)).length)
+
+        type Candidate = {
+            similarity: number
+            segments: DiffLineSegment[]
+        }
+
+        const candidates: (Candidate | null)[][] = Array.from(
+            { length: n }, () => Array<Candidate | null>(m).fill(null)
+        )
+
+        // dp[r][a]: Maximum matching score from removed[r] and added[a] onward.
+        const dp: number[][] = Array.from(
+            { length: n + 1 }, () => Array<number>(m + 1).fill(0)
+        )
+
+        // Calculate the optimal ordered alignment.
+        for (let r = n - 1; r >= 0; r--)
+        {
+            for (let a = m - 1; a >= 0; a--)
+            {
+                const segments = getInlineDiff(removed[r].text, added[a].text)
 
                 const matched = segments.reduce((count, segment) =>
                     segment.type === DiffType.equal
                         ? count + Array.from(segmenter.segment(segment.text)).length
-                        : count, 0)
+                        : count, 0
+                )
 
-                const old_length = Array.from(segmenter.segment(old_segment.text)).length
-                const new_length = Array.from(segmenter.segment(new_segment.text)).length
-
-                const similarity = old_length + new_length === 0
+                const total_length = original_lengths[r] + modified_lengths[a]
+                const similarity = total_length === 0
                     ? 1
-                    : 2 * matched / (old_length + new_length)
+                    : 2 * matched / total_length
 
-                if (similarity >= 0.5)
+                if (similarity >= SIMILARITY_THRESHOLD)
                 {
-                    result.push({
-                        original_line: removed[0].original_line,
-                        modified_line: added[0].modified_line,
-                        segments
-                    })
+                    candidates[r][a] = { similarity, segments }
+                }
 
-                    continue
+                // Option 1: Leave the removed line unmatched.
+                // Option 2: Leave the added line unmatched.
+                dp[r][a] = Math.max(dp[r + 1][a], dp[r][a + 1])
+
+                // Option 3: Match both lines.
+                if (candidates[r][a] !== null)
+                {
+                    dp[r][a] = Math.max(
+                        dp[r][a],
+                        similarity + dp[r + 1][a + 1]
+                    )
                 }
             }
         }
 
-        result.push(...block)
+        // Reconstruct the optimal alignment.
+        let r = 0
+        let a = 0
+
+        while (r < n || a < m)
+        {
+            const candidate = r < n && a < m
+                ? candidates[r][a]
+                : null
+
+            if (candidate !== null && candidate.similarity + dp[r + 1][a + 1] >= dp[r][a] - 1e-9)
+            {
+                result.push({
+                    original_line: removed[r].line.original_line,
+                    modified_line: added[a].line.modified_line,
+                    segments: candidate.segments
+                })
+                r++
+                a++
+            }
+            else if (r < n && (a >= m || dp[r + 1][a] >= dp[r][a + 1]))
+            {
+                result.push(removed[r].line)
+                r++
+            }
+            else
+            {
+                result.push(added[a].line)
+                a++
+            }
+        }
     }
 
     return result
