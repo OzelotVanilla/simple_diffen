@@ -57,14 +57,14 @@ function generateDiffRowFromSegments(segments: DiffResult["lines"][number]["segm
 
             case DiffType.add: {
                 let n = document.createElement("span")
-                n.className = DiffType.add
+                n.className = `${DiffType.add} ${is_for_original_area ? "CaretOnly" : ""}`.trim()
                 n.innerText = is_for_original_area ? "" : s.text
                 return n
             }
 
             case DiffType.remove: {
                 let n = document.createElement("span")
-                n.className = DiffType.remove
+                n.className = `${DiffType.remove} ${is_for_original_area ? "" : "CaretOnly"}`.trim()
                 n.innerText = is_for_original_area ? s.text : ""
                 return n
             }

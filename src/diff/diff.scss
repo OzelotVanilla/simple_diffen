@@ -29,7 +29,7 @@ $diff_placeholder_bg: #e7e7eb;
         {
             background-color: $diff_add_bg;
 
-            &::after
+            &.CaretOnly::after
             {
                 content: "";
                 height: 100%;
@@ -41,7 +41,7 @@ $diff_placeholder_bg: #e7e7eb;
         {
             background-color: $diff_remove_bg;
 
-            &::after
+            &.CaretOnly::after
             {
                 content: "";
                 height: 100%;
