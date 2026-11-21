@@ -5,7 +5,10 @@ $diff_placeholder_bg: #e7e7eb;
 
 .DiffRow
 {
+    font-size: 14px;
     width: 100%;
+    white-space: pre-wrap;
+    white-space-collapse: break-spaces;
 
     &.add
     {
