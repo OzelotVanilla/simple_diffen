@@ -97,6 +97,15 @@ body
     }
 }
 
+#desc_area
+{
+    #license_area pre
+    {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+}
+
 hr
 {
     color: black;

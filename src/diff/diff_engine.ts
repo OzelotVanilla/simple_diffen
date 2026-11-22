@@ -1,3 +1,15 @@
+import { diffArrays as jsdiff_diffArrays } from "diff"
+
+/**
+ * Explicitly mention the `jsdiff` module.
+ * Also, since VSCode does not support semantic highlighting for `import * as x`,
+ *  this namespace is intended made.
+ */
+namespace jsdiff
+{
+    export const diffArrays = jsdiff_diffArrays
+}
+
 /**
  * This file compares two strings for add/remove/modify.
  */;
@@ -23,7 +35,7 @@ export type DiffLine = {
      */
     original_line: number | null
     /**
-     * The line index for this line in modified text. 
+     * The line index for this line in modified text.
      * `null` means does not exist.
      */
     modified_line: number | null
@@ -53,365 +65,306 @@ export enum DiffType
 /**
  * Calculate the diff between given text,
  *  and return the diff result in `DiffResult` type.
- * 
- * Some algorithm-related code adopt from ChatGPT.
+ *
+ * Uses jsdiff to compare text tokens before constructing display lines.
+ * @author ChatGPT
  */
 export function diff(original_text: string, modified_text: string, diff_option?: DiffOption): DiffResult
 {
-    const original_text_lines = original_text.replace(/\r\n?/g, "\n").split("\n")
-    const modified_text_lines = modified_text.replace(/\r\n?/g, "\n").split("\n")
+    const original = original_text.replace(/\r\n?/g, "\n")
+    const modified = modified_text.replace(/\r\n?/g, "\n")
+    const segmenter = new Intl.Segmenter(diff_option?.locales, { granularity: "word" })
 
-    const lines = getMyersLineDiff(original_text_lines, modified_text_lines)
+    const changes = jsdiff.diffArrays(tokenizeText(original, segmenter), tokenizeText(modified, segmenter))
 
-    return ({
-        lines: alignChangedLines(lines, diff_option)
-    }) satisfies DiffResult
-}
+    const original_lines = original.split("\n")
+    const modified_lines = modified.split("\n")
+    const matches = new Map<number, Map<number, number>>()
+    const newline_anchors: { original: number, modified: number }[] = []
+    let original_index = 0
+    let modified_index = 0
 
-/**
- * @author ChatGPT
- */
-function getMyersLineDiff(original_lines: string[], modified_lines: string[]): DiffLine[]
-{
-    const n = original_lines.length
-    const m = modified_lines.length
-
-    const furthest = new Map<number, number>()
-    furthest.set(1, 0)
-
-    const trace: Map<number, number>[] = []
-
-    for (let d = 0; d <= n + m; d++)
+    // Retain the line positions of matched text.
+    for (const change of changes)
     {
-        trace.push(new Map(furthest))
-
-        for (let k = -d; k <= d; k += 2)
+        for (const token of change.value)
         {
-            let x: number
+            const is_equal = !change.added && !change.removed
 
-            if (k === -d || (
-                k !== d && (furthest.get(k - 1) ?? -Infinity) < (furthest.get(k + 1) ?? -Infinity)
-            ))
+            if (token === "\n")
             {
-                x = furthest.get(k + 1) ?? 0
+                if (is_equal)
+                {
+                    newline_anchors.push({ original: original_index, modified: modified_index })
+                }
+
+                if (!change.added) original_index++
+                if (!change.removed) modified_index++
             }
             else
             {
-                x = (furthest.get(k - 1) ?? 0) + 1
-            }
-
-            let y = x - k
-
-            // Follow equal lines without increasing edit cost.
-            while (x < n && y < m && original_lines[x] === modified_lines[y])
-            {
-                x++
-                y++
-            }
-
-            furthest.set(k, x)
-
-            if (x >= n && y >= m)
-            {
-                return getBacktrackMyers(original_lines, modified_lines, trace)
+                if (is_equal)
+                {
+                    const weight = getMeaningfulLength(token)
+                    if (weight > 0)
+                    {
+                        let row = matches.get(original_index)
+                        if (!row)
+                        {
+                            row = new Map<number, number>()
+                            matches.set(original_index, row)
+                        }
+                        row.set(modified_index, (row.get(modified_index) ?? 0) + weight)
+                    }
+                }
             }
         }
     }
 
-    throw new Error("Myers diff failed")
-}
+    const result: DiffLine[] = []
+    let original_start = 0
+    let modified_start = 0
 
-/**
- * @author ChatGPT
- */
-function getBacktrackMyers(
-    original_lines: string[], modified_lines: string[], trace: Map<number, number>[]
-): DiffLine[]
-{
-    let x = original_lines.length
-    let y = modified_lines.length
-
-    const lines: DiffLine[] = []
-
-    for (let d = trace.length - 1; d >= 0; d--)
+    // Only strong nonblank anchors are allowed to divide the line alignment.
+    // Matching an empty line alone must not prevent nearby paragraphs from pairing.
+    for (const anchor of newline_anchors)
     {
-        const previous = trace[d]
-        const k = x - y
+        const original_line = original_lines[anchor.original]
+        const modified_line = modified_lines[anchor.modified]
+        const overlap = matches.get(anchor.original)?.get(anchor.modified) ?? 0
+        const total = getMeaningfulLength(original_line) + getMeaningfulLength(modified_line)
 
-        const previous_k = k === -d || (
-            k !== d &&
-            (previous.get(k - 1) ?? -Infinity) <
-            (previous.get(k + 1) ?? -Infinity)
-        ) ? k + 1 : k - 1
+        if (original_line.trim() === "" || modified_line.trim() === "") continue
+        if (original_line !== modified_line && (overlap < 4 || 2 * overlap < total)) continue
 
-        const previous_x = previous.get(previous_k) ?? 0
-        const previous_y = previous_x - previous_k
+        result.push(...alignLines(
+            original_lines, modified_lines, original_start, anchor.original,
+            modified_start, anchor.modified, matches, segmenter
+        ))
 
-        // Restore equal lines.
-        while (x > previous_x && y > previous_y)
-        {
-            x--
-            y--
+        result.push(createDiffLine(
+            anchor.original, anchor.modified, original_line, modified_line, segmenter
+        ))
 
-            lines.push({
-                original_line: x,
-                modified_line: y,
-                segments: [{
-                    type: DiffType.equal,
-                    text: original_lines[x]
-                }]
-            })
-        }
-
-        if (d === 0) break
-
-        if (x === previous_x)
-        {
-            y--
-
-            lines.push({
-                original_line: null,
-                modified_line: y,
-                segments: [{
-                    type: DiffType.add,
-                    text: modified_lines[y]
-                }]
-            })
-        }
-        else
-        {
-            x--
-
-            lines.push({
-                original_line: x,
-                modified_line: null,
-                segments: [{
-                    type: DiffType.remove,
-                    text: original_lines[x]
-                }]
-            })
-        }
+        original_start = anchor.original + 1
+        modified_start = anchor.modified + 1
     }
 
-    return lines.reverse()
+    result.push(...alignLines(
+        original_lines, modified_lines, original_start, original_lines.length,
+        modified_start, modified_lines.length, matches, segmenter
+    ))
+
+    return ({ lines: result }) satisfies DiffResult
 }
 
 /**
+ * Tokenize an entire document.
+ * Newlines are independent tokens,
+ *  including newlines inserted inside a word or a paragraph.
+ * 
  * @author ChatGPT
  */
-function getInlineDiff(original: string, modified: string): DiffLineSegment[]
+function tokenizeText(text: string, segmenter: Intl.Segmenter): string[]
 {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
-    const original_chars = Array.from(segmenter.segment(original), item => item.segment)
-    const modified_chars = Array.from(segmenter.segment(modified), item => item.segment)
+    const tokens: string[] = []
 
-    const edits = getMyersLineDiff(original_chars, modified_chars)
-    const result: DiffLineSegment[] = []
-
-    let i = 0
-
-    while (i < edits.length)
+    for (const part of text.split(/(\n)/g))
     {
-        if (edits[i].segments[0].type === DiffType.equal)
+        if (part === "") continue
+        if (part === "\n")
         {
-            let text = ""
-
-            while (i < edits.length && edits[i].segments[0].type === DiffType.equal)
-            {
-                const segment = edits[i].segments[0]
-                if (segment.type === DiffType.equal) text += segment.text
-                i++
-            }
-
-            result.push({ type: DiffType.equal, text })
+            tokens.push(part)
             continue
         }
 
-        let removed = ""
-        let added = ""
+        for (const token of segmenter.segment(part)) tokens.push(token.segment)
+    }
 
-        while (i < edits.length && edits[i].segments[0].type !== DiffType.equal)
+    return tokens
+}
+
+function getMeaningfulLength(text: string): number
+{
+    return Array.from(text.replace(/[\s\p{P}]/gu, "")).length
+}
+
+/**
+ * Align the actual lines within one text-diff region.
+ * Shared text tokens provide the matching score, not raw line equality.
+ * 
+ * @author ChatGPT
+ */
+function alignLines(
+    original_lines: string[], modified_lines: string[],
+    original_start: number, original_end: number,
+    modified_start: number, modified_end: number,
+    matches: Map<number, Map<number, number>>,
+    segmenter: Intl.Segmenter
+): DiffLine[]
+{
+    const result: DiffLine[] = []
+    const n = original_end - original_start
+    const m = modified_end - modified_start
+
+    // Do not create an unbounded dynamic-programming table for huge rewrites.
+    if (n * m > 4096)
+    {
+        for (let i = original_start; i < original_end; i++)
         {
-            const segment = edits[i].segments[0]
+            result.push(createDiffLine(i, null, original_lines[i], null, segmenter))
+        }
+        for (let j = modified_start; j < modified_end; j++)
+        {
+            result.push(createDiffLine(null, j, null, modified_lines[j], segmenter))
+        }
+        return result
+    }
 
-            if (segment.type === DiffType.remove) removed += segment.text
-            if (segment.type === DiffType.add) added += segment.text
+    const original_lengths = original_lines.slice(original_start, original_end).map(getMeaningfulLength)
+    const modified_lengths = modified_lines.slice(modified_start, modified_end).map(getMeaningfulLength)
 
+    const dp: number[][] = Array.from(
+        { length: n + 1 }, () => Array<number>(m + 1).fill(0)
+    )
+    const scores: number[][] = Array.from(
+        { length: n }, () => Array<number>(m).fill(0)
+    )
+
+    for (let i = n - 1; i >= 0; i--)
+    {
+        for (let j = m - 1; j >= 0; j--)
+        {
+            const original_index = original_start + i
+            const modified_index = modified_start + j
+            const old_text = original_lines[original_index]
+            const new_text = modified_lines[modified_index]
+            const overlap = matches.get(original_index)?.get(modified_index) ?? 0
+            const total = original_lengths[i] + modified_lengths[j]
+            const ratio = total === 0 ? 0 : 2 * overlap / total
+
+            if (old_text === new_text)
+            {
+                scores[i][j] = Math.max(1, 2 * overlap + 1)
+            }
+            else if (overlap >= 2 && (ratio >= 0.25 || overlap >= 8))
+            {
+                scores[i][j] = overlap * (1 + ratio)
+            }
+
+            dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+            if (scores[i][j] > 0)
+            {
+                dp[i][j] = Math.max(dp[i][j], scores[i][j] + dp[i + 1][j + 1])
+            }
+        }
+    }
+
+    let i = 0
+    let j = 0
+
+    while (i < n || j < m)
+    {
+        if (i < n && j < m && scores[i][j] > 0 &&
+            scores[i][j] + dp[i + 1][j + 1] >= dp[i][j] - 1e-9)
+        {
+            const original_index = original_start + i
+            const modified_index = modified_start + j
+            result.push(createDiffLine(
+                original_index, modified_index,
+                original_lines[original_index], modified_lines[modified_index], segmenter
+            ))
+            i++
+            j++
+        }
+        else if (i < n && (j >= m || dp[i + 1][j] >= dp[i][j + 1]))
+        {
+            const original_index = original_start + i
+            result.push(createDiffLine(original_index, null, original_lines[original_index], null, segmenter))
             i++
         }
-
-        if (removed && added)
+        else
         {
-            result.push({ type: DiffType.modify, original: removed, modified: added })
-        }
-        else if (removed)
-        {
-            result.push({ type: DiffType.remove, text: removed })
-        }
-        else if (added)
-        {
-            result.push({ type: DiffType.add, text: added })
+            const modified_index = modified_start + j
+            result.push(createDiffLine(null, modified_index, null, modified_lines[modified_index], segmenter))
+            j++
         }
     }
 
     return result
 }
 
-
 /**
- * Align removed and added lines within each changed block.
- * Uses dynamic programming to find the best ordered matching.
- *
  * @author ChatGPT
  */
-function alignChangedLines(lines: DiffLine[], diff_option?: DiffOption): DiffLine[]
+function createDiffLine(
+    original_line: number | null, modified_line: number | null,
+    original: string | null, modified: string | null,
+    segmenter: Intl.Segmenter
+): DiffLine
 {
-    const result: DiffLine[] = []
-    const segmenter = new Intl.Segmenter(diff_option?.locales, { granularity: "grapheme" })
-    const SIMILARITY_THRESHOLD = 0.5
-    const MAX_PAIR_COMPARISONS = 4096
+    let segments: DiffLineSegment[]
 
-    let i = 0
-
-    while (i < lines.length)
+    if (original === null)
     {
-        if (lines[i].segments[0]?.type === DiffType.equal)
+        segments = [{ type: DiffType.add, text: modified ?? "" }]
+    }
+    else if (modified === null)
+    {
+        segments = [{ type: DiffType.remove, text: original }]
+    }
+    else
+    {
+        segments = getInlineDiff(original, modified, segmenter)
+    }
+
+    return { original_line, modified_line, segments }
+}
+
+/**
+ * Merge adjacent token insertions and removals into the existing segment format.
+ * 
+ * @author ChatGPT
+ */
+function getInlineDiff(original: string, modified: string, segmenter: Intl.Segmenter): DiffLineSegment[]
+{
+    if (original === modified) return [{ type: DiffType.equal, text: original }]
+
+    const changes = jsdiff.diffArrays(tokenizeText(original, segmenter), tokenizeText(modified, segmenter))
+    const result: DiffLineSegment[] = []
+    let removed = ""
+    let added = ""
+
+    const flush = (): void =>
+    {
+        if (removed !== "" && added !== "")
         {
-            result.push(lines[i])
-            i++
-            continue
+            result.push({ type: DiffType.modify, original: removed, modified: added })
         }
-
-        // Collect a changed block between two equal lines.
-        const block: DiffLine[] = []
-
-        while (i < lines.length && lines[i].segments[0]?.type !== DiffType.equal)
+        else if (removed !== "")
         {
-            block.push(lines[i])
-            i++
+            result.push({ type: DiffType.remove, text: removed })
         }
-
-        const removed: { line: DiffLine, text: string }[] = []
-        const added: { line: DiffLine, text: string }[] = []
-
-        for (const line of block)
+        else if (added !== "")
         {
-            const segment = line.segments[0]
-
-            if (segment?.type === DiffType.remove)
-            {
-                removed.push({ line, text: segment.text })
-            }
-            else if (segment?.type === DiffType.add)
-            {
-                added.push({ line, text: segment.text })
-            }
+            result.push({ type: DiffType.add, text: added })
         }
+        removed = ""
+        added = ""
+    }
 
-        // No possible replacements.
-        if (removed.length === 0 || added.length === 0)
+    for (const change of changes)
+    {
+        const text = change.value.join("")
+        if (change.removed) removed += text
+        else if (change.added) added += text
+        else
         {
-            result.push(...block)
-            continue
-        }
-
-        // Avoid excessive pairwise comparisons.
-        if (removed.length * added.length > MAX_PAIR_COMPARISONS)
-        {
-            result.push(...block)
-            continue
-        }
-
-        const n = removed.length
-        const m = added.length
-
-        const original_lengths = removed.map(item => Array.from(segmenter.segment(item.text)).length)
-        const modified_lengths = added.map(item => Array.from(segmenter.segment(item.text)).length)
-
-        type Candidate = {
-            similarity: number
-            segments: DiffLineSegment[]
-        }
-
-        const candidates: (Candidate | null)[][] = Array.from(
-            { length: n }, () => Array<Candidate | null>(m).fill(null)
-        )
-
-        // dp[r][a]: Maximum matching score from removed[r] and added[a] onward.
-        const dp: number[][] = Array.from(
-            { length: n + 1 }, () => Array<number>(m + 1).fill(0)
-        )
-
-        // Calculate the optimal ordered alignment.
-        for (let r = n - 1; r >= 0; r--)
-        {
-            for (let a = m - 1; a >= 0; a--)
-            {
-                const segments = getInlineDiff(removed[r].text, added[a].text)
-
-                const matched = segments.reduce((count, segment) =>
-                    segment.type === DiffType.equal
-                        ? count + Array.from(segmenter.segment(segment.text)).length
-                        : count, 0
-                )
-
-                const total_length = original_lengths[r] + modified_lengths[a]
-                const similarity = total_length === 0
-                    ? 1
-                    : 2 * matched / total_length
-
-                if (similarity >= SIMILARITY_THRESHOLD)
-                {
-                    candidates[r][a] = { similarity, segments }
-                }
-
-                // Option 1: Leave the removed line unmatched.
-                // Option 2: Leave the added line unmatched.
-                dp[r][a] = Math.max(dp[r + 1][a], dp[r][a + 1])
-
-                // Option 3: Match both lines.
-                if (candidates[r][a] !== null)
-                {
-                    dp[r][a] = Math.max(
-                        dp[r][a],
-                        similarity + dp[r + 1][a + 1]
-                    )
-                }
-            }
-        }
-
-        // Reconstruct the optimal alignment.
-        let r = 0
-        let a = 0
-
-        while (r < n || a < m)
-        {
-            const candidate = r < n && a < m
-                ? candidates[r][a]
-                : null
-
-            if (candidate !== null && candidate.similarity + dp[r + 1][a + 1] >= dp[r][a] - 1e-9)
-            {
-                result.push({
-                    original_line: removed[r].line.original_line,
-                    modified_line: added[a].line.modified_line,
-                    segments: candidate.segments
-                })
-                r++
-                a++
-            }
-            else if (r < n && (a >= m || dp[r + 1][a] >= dp[r][a + 1]))
-            {
-                result.push(removed[r].line)
-                r++
-            }
-            else
-            {
-                result.push(added[a].line)
-                a++
-            }
+            flush()
+            result.push({ type: DiffType.equal, text })
         }
     }
 
+    flush()
     return result
 }

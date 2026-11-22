@@ -21,7 +21,7 @@
 
 <body>
     <div id="page_title">
-        <h1>Simple Diffen v1.0.1.4</h1>
+        <h1>Simple Diffen v1.1.0.0</h1>
         <p>Compare (diff) text locally in your browser.</p>
     </div>
     <div id="input_area">
@@ -44,10 +44,12 @@
     <hr />
     <div id="desc_area">
         <p>
-            Simple Diffen is a diff tool that uses JavaScript to show diff information.
+            Simple Diffen is a diff/compare tool that uses JavaScript (<a href="https://github.com/kpdecker/jsdiff"
+                target="_blank" rel="noopener noreferrer">jsdiff</a>
+            is used) to show diff information.
         </p>
         <p>
-            It runs completely on local browser environment,
+            It runs completely on local browser environment (offline, no data uploaded to server for comparison),
             and could be downloaded as a single HTML file even the online version does not work.
         </p>
         <p>
@@ -59,6 +61,44 @@
                 https://github.com/OzelotVanilla/single_diffen
             </a>
         </p>
+        <div id="license_area">
+            Licenses for the software/library used:
+            <p>* jsdiff</p>
+            <details>
+                <summary>See the full license for <code>jsdiff</code> (BSD 3-Clause License)</summary>
+                <pre>
+BSD 3-Clause License
+
+Copyright (c) 2009-2015, Kevin Decker &lt;kpdecker@gmail.com&gt;
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+                </pre>
+            </details>
+        </div>
     </div>
 
     <script type="module" src="./index.ts"></script>
