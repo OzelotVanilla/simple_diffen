@@ -19,6 +19,7 @@ body
 {
     display: flex;
     flex-direction: row;
+    align-items: last baseline;
     gap: min(20px, 2vw);
 
     h1
