@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "es6",
+        "target": "esnext", // Bundler will make it compatible with browser baseline.
         "lib": [
             "dom",
             "dom.iterable",

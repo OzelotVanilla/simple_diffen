@@ -3,7 +3,9 @@ import { viteSingleFile } from "vite-plugin-singlefile"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-export default defineConfig({
+const mode_name__release_min = "release_min"
+
+export default defineConfig(({ mode }) => ({
     root: "src",
     plugins: [
         viteSingleFile(),
@@ -26,11 +28,12 @@ export default defineConfig({
     ],
     build: {
         outDir: "../output",
-        emptyOutDir: true,
-        minify: false
+        emptyOutDir: false, // Because `build.ts` already did that.
+        minify: mode == mode_name__release_min,
+        cssMinify: mode == mode_name__release_min,
     },
     server: {
         port: 3000,
         strictPort: true,
     },
-})
+}))

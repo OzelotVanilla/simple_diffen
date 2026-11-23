@@ -1,0 +1,140 @@
+name: Create Release
+
+# Adopted from ChatGPT.
+
+on:
+    push:
+        tags:
+            - "v*.*.*.*"
+
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Version tag (e.g. v1.1.2.0)"
+                required: true
+                type: string
+
+            replace_existing:
+                description: "Replace existing release assets and notes"
+                required: false
+                type: boolean
+                default: false
+
+            make_latest:
+                description: "Mark as latest release"
+                required: false
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+
+        env:
+            RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+            REPLACE_EXISTING: ${{ inputs.replace_existing || false }}
+            MAKE_LATEST: ${{ github.event_name == 'push' || inputs.make_latest == true }}
+
+        steps:
+            - name: Validate version
+              run: |
+                  if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "Invalid version tag: $RELEASE_TAG"
+                      exit 1
+                  fi
+
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  ref: refs/tags/${{ env.RELEASE_TAG }}
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v6
+              with:
+                  version: 10
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "lts/*"
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Type check
+              run: pnpm exec tsc --noEmit
+
+            - name: Build
+              run: |
+                  pnpm build
+
+                  test -s output/index.html
+                  test -s output/index.min.html
+
+                  mkdir -p release
+                  cp output/index.html "release/simple_diffen_${RELEASE_TAG}.html"
+                  cp output/index.min.html "release/simple_diffen_${RELEASE_TAG}.min.html"
+
+            - name: Verify release files
+              run: |
+                  ls -lh release/*.html
+                  test -s "release/simple_diffen_${RELEASE_TAG}.html"
+                  test -s "release/simple_diffen_${RELEASE_TAG}.min.html"
+
+            - name: Extract release notes
+              run: |
+                  version="${RELEASE_TAG#v}"
+
+                  awk -v version="$version" '
+                      /^## / {
+                          if (found) exit
+                          found = ($2 == "[" version "]")
+                          next
+                      }
+                      found { print }
+                  ' changelog.md > "$RUNNER_TEMP/release-notes.md"
+
+                  if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/release-notes.md"; then
+                      echo "No changelog entry for $version"
+                      exit 1
+                  fi
+
+            - name: Publish GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+
+                      if [[ "$REPLACE_EXISTING" != "true" ]]; then
+                          echo "Release $RELEASE_TAG already exists."
+                          exit 1
+                      fi
+
+                      gh release upload "$RELEASE_TAG" \
+                          "release/simple_diffen_${RELEASE_TAG}.html" \
+                          "release/simple_diffen_${RELEASE_TAG}.min.html" \
+                          --clobber
+
+                      gh release edit "$RELEASE_TAG" \
+                          --title "Simple Diffen ${RELEASE_TAG}" \
+                          --notes-file "$RUNNER_TEMP/release-notes.md"
+
+                      if [[ "$MAKE_LATEST" == "true" ]]; then
+                          gh release edit "$RELEASE_TAG" --latest
+                      fi
+
+                  else
+
+                      gh release create "$RELEASE_TAG" \
+                          "release/simple_diffen_${RELEASE_TAG}.html" \
+                          "release/simple_diffen_${RELEASE_TAG}.min.html" \
+                          --verify-tag \
+                          --title "Simple Diffen ${RELEASE_TAG}" \
+                          --notes-file "$RUNNER_TEMP/release-notes.md" \
+                          --latest="$MAKE_LATEST"
+
+                  fi
