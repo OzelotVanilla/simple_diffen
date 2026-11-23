@@ -1,4 +1,4 @@
-import { diffArrays as jsdiff_diffArrays } from "diff"
+import { diffArrays as jsdiff_diffArrays } from "diff/lib/diff/array.js"
 
 /**
  * Explicitly mention the `jsdiff` module.
@@ -184,6 +184,9 @@ function tokenizeText(text: string, segmenter: Intl.Segmenter): string[]
     return tokens
 }
 
+/**
+ * @author ChatGPT
+ */
 function getMeaningfulLength(text: string): number
 {
     return Array.from(text.replace(/[\s\p{P}]/gu, "")).length
