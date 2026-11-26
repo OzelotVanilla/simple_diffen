@@ -3,6 +3,7 @@
     "description": "A diff viewer in one HTML file",
     "type": "module",
     "devDependencies": {
+        "@types/dom-chromium-ai": "^0.0.18",
         "@types/node": "^26.6.6",
         "sass-embedded": "^1.108.2",
         "typescript": "^7.0.2",

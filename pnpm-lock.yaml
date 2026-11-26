@@ -12,6 +12,9 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
     devDependencies:
+      '@types/dom-chromium-ai':
+        specifier: ^0.0.18
+        version: 0.0.18
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -384,6 +387,9 @@ packages:
 
   '@tybys/wasm-util@0.10.5':
     resolution: {integrity: sha512-dOGOPxlaNV+G046mZzN+9C0dAcQZeSKcXiVaM0TYy/LM4ttTmgSBDxYfovcYI8Em3+eAbiAYpvWLOv8+ZVRJKA==}
+
+  '@types/dom-chromium-ai@0.0.18':
+    resolution: {integrity: sha512-/ZITAMdViQlLmEs56d/ET9qJ42EfnrBrLw5gRB4p0raDoavGDacqP9VITK8wNM0f9bPmnddHZeJ+FWIkWi6JlQ==}
 
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
@@ -1081,6 +1087,8 @@ snapshots:
     dependencies:
       tslib: 2.9.1
     optional: true
+
+  '@types/dom-chromium-ai@0.0.18': {}
 
   '@types/node@26.6.6':
     dependencies:

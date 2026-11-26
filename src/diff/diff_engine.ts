@@ -19,6 +19,16 @@ export type DiffOption = {
      * Selected language for the diff.
      */
     locales?: Intl.LocalesArgument
+
+    /**
+     * Granularity of diff.
+     */
+    granularity?: Intl.SegmenterOptions["granularity"]
+
+    /**
+     * Whether case is ignored.
+     */
+    should_ignore_case?: boolean
 }
 
 /**
@@ -73,7 +83,7 @@ export function diff(original_text: string, modified_text: string, diff_option?:
 {
     const original = original_text.replace(/\r\n?/g, "\n")
     const modified = modified_text.replace(/\r\n?/g, "\n")
-    const segmenter = new Intl.Segmenter(diff_option?.locales, { granularity: "word" })
+    const segmenter = new Intl.Segmenter(diff_option?.locales, { granularity: diff_option?.granularity ?? "word" })
 
     const changes = jsdiff.diffArrays(tokenizeText(original, segmenter), tokenizeText(modified, segmenter))
 

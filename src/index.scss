@@ -58,16 +58,80 @@ body
     }
 }
 
-#option_area
+#compare_button_and_option_area
 {
     display: flex;
     flex-direction: row;
-    gap: max(10px, 2vw);
 
     #compare_button
     {
+        order: 0;
+
         min-width: min(5vw, 80px);
         min-height: min(4vh, 40px);
+    }
+
+    &::before
+    {
+        order: 1; // After `#compare_button`
+        align-self: center;
+
+        content: "";
+        height: 90%;
+        border-left: 1px solid black;
+        margin: 0px max(5px, 1vw);
+    }
+
+    #option_area
+    {
+        order: 2;
+
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: start;
+        gap: max(40px, 4vw);
+
+        font-size: 12px;
+
+        .OptionGroup
+        {
+            display: flex;
+            flex-direction: row;
+            gap: max(20px, 1.5vw);
+
+            .SelectGroup
+            {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: max(15px, 0.5vw);
+
+                select
+                {
+                    min-width: max(100px, 5vw);
+                }
+
+                label
+                {
+                    font-weight: 600;
+                }
+            }
+
+            .CheckerBoxGroup
+            {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: max(5px, 0.25vw);
+            }
+        }
+
+        #button__language_auto_detect
+        {
+            min-width: 120px;
+        }
     }
 }
 
