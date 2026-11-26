@@ -9,6 +9,7 @@ $diff_placeholder_bg: #e7e7eb;
     width: 100%;
     white-space: pre-wrap;
     white-space-collapse: break-spaces;
+    overflow-wrap: anywhere; // Break too long (no white space) code.
 
     &.add
     {
